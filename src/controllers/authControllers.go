@@ -10,16 +10,17 @@ import (
 
 func Register(c *gin.Context) {
 	var RegisterRequest struct {
-		Name     string `json:"name" binding:"required"`
+		FullName string `json:"full_name" binding:"required"`
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
 	}
-	
+
 	if errorHandler := c.ShouldBindJSON(&RegisterRequest); errorHandler != nil {
 		utils.SendErrorResponse(c, "[REGISTER] Invalid request data", 400)
 		return
 	}
 
+	// Jika email SUDAH ada → tolak register
 	if _, errorHandler := repositories.GetUserByEmail(RegisterRequest.Email); errorHandler == nil {
 		utils.SendErrorResponse(c, "[REGISTER] Email already registered", 400)
 		return
@@ -32,15 +33,15 @@ func Register(c *gin.Context) {
 	}
 
 	user := models.User{
-		Name:     RegisterRequest.Name,
-		Email:    RegisterRequest.Email,
+		FullName:       RegisterRequest.FullName,
+		Email:          RegisterRequest.Email,
 		HashedPassword: hashedPassword,
 	}
 	if errorHandler := repositories.CreateUser(&user); errorHandler != nil {
 		utils.SendErrorResponse(c, "[REGISTER] Error creating user", 500)
 		return
 	}
-	
+
 	token, errorHandler := utils.GenerateJWT(&user)
 	if errorHandler != nil {
 		utils.SendErrorResponse(c, "[REGISTER] Error generating token but account created", 500)
@@ -48,7 +49,7 @@ func Register(c *gin.Context) {
 	}
 
 	utils.SendSuccessResponse(c, "[REGISTER] User registered successfully", gin.H{"token": token})
-	
+
 	return
 }
 
@@ -68,7 +69,7 @@ func Login(c *gin.Context) {
 		utils.SendErrorResponse(c, "[LOGIN] User not found", 404)
 		return
 	}
-	
+
 	if errorHandler := utils.ComparePasswords(user.HashedPassword, LoginRequest.Password); errorHandler != nil {
 		utils.SendErrorResponse(c, "[LOGIN] Incorrect password", 401)
 		return
@@ -106,7 +107,7 @@ func Refresh(c *gin.Context) {
 	// JWT MapClaims stores numbers as float64
 	var id uint
 	switch v := userID.(type) {
-		
+
 	case float64:
 		id = uint(v)
 	case uint:

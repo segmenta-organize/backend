@@ -26,9 +26,9 @@ func ComparePasswords(hashedPassword, password string) error {
 
 func GenerateJWT(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
+		"user_id": user.UserID,
 		"email":   user.Email,
-		"name":    user.Name,
+		"name":    user.FullName,
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

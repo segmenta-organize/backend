@@ -11,10 +11,8 @@ func CreateUser(user *models.User) error {
 
 func GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
-	if errorHandler := configs.Database.Where("email = ?", email).First(&user).Error; errorHandler != nil {
-		return nil, errorHandler
-	}
-	return &user, nil
+	result := configs.Database.Where("email = ?", email).First(&user)
+	return &user, result.Error
 }
 
 func GetUserByID(id uint) (*models.User, error) {
