@@ -20,7 +20,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Jika email SUDAH ada → tolak register
 	if _, errorHandler := repositories.GetUserByEmail(RegisterRequest.Email); errorHandler == nil {
 		utils.SendErrorResponse(c, "[REGISTER] Email already registered", 400)
 		return
