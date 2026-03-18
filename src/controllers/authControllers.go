@@ -48,8 +48,6 @@ func Register(c *gin.Context) {
 	}
 
 	utils.SendSuccessResponse(c, "[REGISTER] User registered successfully", gin.H{"token": token})
-
-	return
 }
 
 func Login(c *gin.Context) {
@@ -81,8 +79,6 @@ func Login(c *gin.Context) {
 	}
 
 	utils.SendSuccessResponse(c, "[LOGIN] Login successful", gin.H{"token": token})
-
-	return
 }
 
 func Logout(c *gin.Context) {

@@ -9,24 +9,25 @@ import (
 )
 
 func SetupExploreRoutes(router *gin.Engine, config *models.AppConfig) {
-	exploreGroup := router.Group("/explore")
-	exploreGroup.Use(middlewares.AuthMiddleware())
+	exploreGroup := router.Group("/explore/courses")
 	{
-		exploreGroup.GET("/courses", handlers.GetAllCoursesForExplore)
-		exploreGroup.GET("/courses/:id", handlers.GetExploredCourseByID)
-		exploreGroup.GET("/courses/search", handlers.SearchCourses)
-		exploreGroup.POST("/courses/:id/enroll", handlers.EnrollInCourse)
+		exploreGroup.GET("/", handlers.GetAllExploreCourses)
+		exploreGroup.GET("/:id", handlers.GetExploreCourseByID)
+		exploreGroup.GET("/search", handlers.SearchCourses)
+		exploreGroup.GET("/categories/:category", handlers.GetAllCoursesByCategoryForExplore)
+		exploreGroup.POST("/:id/enroll", middlewares.AuthMiddleware(), handlers.EnrollInCourse)
+		exploreGroup.PUT("/:id/edit", middlewares.AuthMiddleware(), handlers.EditPublicCourse)
+		exploreGroup.DELETE("/:id/delete", middlewares.AuthMiddleware(), handlers.DeletePublicCourse)
 	}
 }
 
 func SetupExploreChapterRoutes(router *gin.Engine, config *models.AppConfig) {
 	exploreChapterGroup := router.Group("/explore/chapters")
-	exploreChapterGroup.Use(middlewares.AuthMiddleware())
 	{
-		exploreChapterGroup.GET("/", handlers.GetAllExploreChapterByCourseID)
-		exploreChapterGroup.GET("/:id", handlers.GetOneExploreChapterByID)
-		exploreChapterGroup.POST("/create", handlers.CreateExploreChapter)
-		exploreChapterGroup.PUT("/edit/:id", handlers.UpdateExploreChapter)
-		exploreChapterGroup.DELETE("/delete/:id", handlers.DeleteExploreChapter)
+		exploreChapterGroup.GET("/", handlers.GetAllExploreChapterByExploreCourseID)
+		exploreChapterGroup.GET("/:id", handlers.GetOneExploreChapterByCourseID)
+		exploreChapterGroup.POST("/create", middlewares.AuthMiddleware(), handlers.CreateExploreChapter)
+		exploreChapterGroup.PUT("/:id/edit", middlewares.AuthMiddleware(), handlers.UpdateExploreChapter)
+		exploreChapterGroup.DELETE("/:id/delete", middlewares.AuthMiddleware(), handlers.DeleteExploreChapter)
 	}
 }

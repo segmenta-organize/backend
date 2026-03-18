@@ -7,22 +7,28 @@ import (
 
 // Explore Course Repositories
 
-func GetAllAvailableCourses(userID uint) ([]models.ExploreCourse, error) {
-	var courses []models.ExploreCourse
-	result := configs.Database.Find(&courses)
-	return courses, result.Error
+func GetAllExploreCourses() ([]models.ExploreCourse, error) {
+	var exploreCourses []models.ExploreCourse
+	result := configs.Database.Find(&exploreCourses)
+	return exploreCourses, result.Error
 }
 
-func GetExploredCourseByID(id uint) (*models.ExploreCourse, error) {
-	var course models.ExploreCourse
-	result := configs.Database.First(&course, "explore_course_id = ?", id)
-	return &course, result.Error
+func GetExploreCourseByID(id uint) (*models.ExploreCourse, error) {
+	var targetCourse models.ExploreCourse
+	result := configs.Database.First(&targetCourse, "explore_course_id = ?", id)
+	return &targetCourse, result.Error
 }
 
-func SearchCourses(query string) ([]models.ExploreCourse, error) {
-	var courses []models.ExploreCourse
-	result := configs.Database.Where("title ILIKE ?", "%"+query+"%").Find(&courses)
-	return courses, result.Error
+func SearchExploreCourses(query string) ([]models.ExploreCourse, error) {
+	var exploreCourses []models.ExploreCourse
+	result := configs.Database.Where("title ILIKE ?", "%"+query+"%").Find(&exploreCourses)
+	return exploreCourses, result.Error
+}
+
+func GetAllCoursesByCategoryForExplore(category string) ([]models.ExploreCourse, error) {
+	var exploreCourses []models.ExploreCourse
+	result := configs.Database.Where("category = ?", category).Find(&exploreCourses)
+	return exploreCourses, result.Error
 }
 
 func EnrollUserInCourse(userID uint, courseID uint) error {
@@ -30,6 +36,12 @@ func EnrollUserInCourse(userID uint, courseID uint) error {
 	result := configs.Database.First(&templateCourse, "explore_course_id = ?", courseID)
 	if result.Error != nil {
 		return result.Error
+	}
+
+	// Safe dereference of Version — default to 1 if nil
+	sourceVersion := 1
+	if templateCourse.Version != nil {
+		sourceVersion = *templateCourse.Version
 	}
 
 	// Copy course data
@@ -43,7 +55,7 @@ func EnrollUserInCourse(userID uint, courseID uint) error {
 		VideoLink:            templateCourse.VideoLink,
 		ThumbnailImageURL:    templateCourse.ThumbnailImageURL,
 		SourcePublicCourseID: &sourceID,
-		SourceVersion:        *templateCourse.Version,
+		SourceVersion:        sourceVersion,
 	}
 
 	if err := configs.Database.Create(&newCourse).Error; err != nil {
@@ -56,14 +68,26 @@ func EnrollUserInCourse(userID uint, courseID uint) error {
 
 	for i, ec := range exploreChapters {
 		chapter := models.Chapter{
-			CourseID:  int(newCourse.CourseID),
-			Title:     ec.Title,
-			Position:  i + 1,
+			CourseID: int(newCourse.CourseID),
+			Title:    ec.Title,
+			Position: i + 1,
 		}
 		configs.Database.Create(&chapter)
 	}
 
 	return nil
+}
+
+func EditPublicCourse(courseID uint, updatedCourse *models.ExploreCourse) error {
+	return configs.Database.Model(&models.ExploreCourse{}).Where("explore_course_id = ?", courseID).Updates(updatedCourse).Error
+}
+
+func DeletePublicCourse(courseID uint) error {
+	// Delete all related explore chapters first (cascade)
+	if err := DeleteExploreChaptersByCourseID(courseID); err != nil {
+		return err
+	}
+	return configs.Database.Where("explore_course_id = ?", courseID).Delete(&models.ExploreCourse{}).Error
 }
 
 // Explore Chapter Repositories
@@ -90,4 +114,8 @@ func UpdateExploreChapterByID(id uint, chapter *models.ExploreChapter) error {
 
 func DeleteExploreChapterByID(id uint) error {
 	return configs.Database.Where("explore_chapter_id = ?", id).Delete(&models.ExploreChapter{}).Error
+}
+
+func DeleteExploreChaptersByCourseID(courseID uint) error {
+	return configs.Database.Where("explore_course_id = ?", courseID).Delete(&models.ExploreChapter{}).Error
 }

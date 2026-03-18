@@ -115,7 +115,7 @@ func AutoCreateCourses(c *gin.Context) {
 		return
 	}
 
-	//Create course with full metadata
+	// Create course with full metadata
 	course := models.Course{
 		UserID:            int(userID),
 		Title:             metadata.Title,
@@ -210,18 +210,10 @@ func DeleteCourse(c *gin.Context) {
 		return
 	}
 
-	// Check if theres chapters associated with the course, if yes delete them first
-	chapters, errorHandler := repositories.GetAllChaptersByCourseID(uint(courseID))
-	if errorHandler != nil {
-		utils.SendErrorResponse(c, "[DELETE COURSE] Error fetching chapters", 500)
+	// Delete all chapters associated with this course first (cascade)
+	if errorHandler := repositories.DeleteChaptersByCourseID(uint(courseID)); errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE COURSE] Error deleting chapters", 500)
 		return
-	}
-	
-	for _, chapter := range chapters {
-		if errorHandler := repositories.DeleteChapterByID(chapter.ChapterID); errorHandler != nil {
-			utils.SendErrorResponse(c, "[DELETE COURSE] Error deleting chapter", 500)
-			return
-		}
 	}
 
 	if errorHandler := repositories.DeleteCourseByID(uint(courseID)); errorHandler != nil {
@@ -232,7 +224,83 @@ func DeleteCourse(c *gin.Context) {
 	utils.SendSuccessResponse(c, "[DELETE COURSE] Course deleted successfully", nil)
 }
 
+// Publish Course to Explore
+
+func CreatePublicCourseFromCourse(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[CREATE PUBLIC COURSE]")
+	if !ok {
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, errorHandler := strconv.ParseUint(courseIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC COURSE] Invalid course ID", 400)
+		return
+	}
+
+	existingCourse, errorHandler := repositories.GetCourseByID(uint(courseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC COURSE] Error fetching course", 500)
+		return
+	}
+
+	if uint(existingCourse.UserID) != userID {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC COURSE] Forbidden", 403)
+		return
+	}
+
+	if errorHandler := repositories.CreatePublicCourseFromCourse(uint(courseID), userID); errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC COURSE] Error creating public course", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[CREATE PUBLIC COURSE] Public course created successfully", nil)
+}
+
+func UpdatePublicCourseFromCourse(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[UPDATE PUBLIC COURSE]")
+	if !ok {
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, errorHandler := strconv.ParseUint(courseIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC COURSE] Invalid course ID", 400)
+		return
+	}
+
+	existingCourse, errorHandler := repositories.GetCourseByID(uint(courseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC COURSE] Error fetching course", 500)
+		return
+	}
+
+	if uint(existingCourse.UserID) != userID {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC COURSE] Forbidden", 403)
+		return
+	}
+
+	// Need explore_course_id to know which public course to update
+	var requestBody struct {
+		ExploreCourseID uint `json:"explore_course_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC COURSE] explore_course_id is required", 400)
+		return
+	}
+
+	if errorHandler := repositories.UpdatePublicCourseFromCourse(uint(courseID), requestBody.ExploreCourseID); errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC COURSE] Error updating public course", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[UPDATE PUBLIC COURSE] Public course updated successfully", nil)
+}
+
 // Chapter Controllers
+
 func GetAllChaptersByCourseID(c *gin.Context) {
 	userID, ok := utils.GetUserID(c, "[GET CHAPTERS BY COURSE ID]")
 	if !ok {
@@ -424,7 +492,7 @@ func DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	if err := repositories.DeleteChapterByID(uint(chapterID)); err != nil {
+	if errorHandler := repositories.DeleteChapterByID(uint(chapterID)); errorHandler != nil {
 		utils.SendErrorResponse(c, "[DELETE CHAPTER] Error deleting chapter", 500)
 		return
 	}
@@ -432,29 +500,145 @@ func DeleteChapter(c *gin.Context) {
 	utils.SendSuccessResponse(c, "[DELETE CHAPTER] Chapter deleted successfully", nil)
 }
 
-// func MakePublicCourse(c *gin.Context) {
-// 	userID, ok := utils.GetUserID(c, "[MAKE PUBLIC COURSE]")
-// 	if !ok {
-// 		return
-// 	}
-	
-// 	courseIDStr := c.Param("id")
-// 	courseID, errorHandler := strconv.ParseUint(courseIDStr, 10, 64)
-// 	if errorHandler != nil {
-// 		utils.SendErrorResponse(c, "[MAKE PUBLIC COURSE] Invalid course ID", 400)
-// 		return
-// 	}
+// Chapter → Explore Chapter public functions
 
-// 	existingCourse, errorHandler := repositories.GetCourseByID(uint(courseID))
-// 	if errorHandler != nil {
-// 		utils.SendErrorResponse(c, "[MAKE PUBLIC COURSE] Error fetching course", 500)
-// 		return
-// 	}
-	
-// 	if uint(existingCourse.UserID) != userID {
-// 		utils.SendErrorResponse(c, "[MAKE PUBLIC COURSE] Forbidden", 403)
-// 		return
-// 	}
+func CreatePublicChapterFromChapter(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[CREATE PUBLIC CHAPTER]")
+	if !ok {
+		return
+	}
 
-// 	existingCourse.IsPublic = true
-// }
+	chapterIDStr := c.Param("id")
+	chapterID, errorHandler := strconv.ParseUint(chapterIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] Invalid chapter ID", 400)
+		return
+	}
+
+	// Verify ownership through course
+	chapter, errorHandler := repositories.GetChapterByID(uint(chapterID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] Chapter not found", 404)
+		return
+	}
+
+	course, errorHandler := repositories.GetCourseByID(uint(chapter.CourseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] Course not found", 404)
+		return
+	}
+
+	if uint(course.UserID) != userID {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] Forbidden", 403)
+		return
+	}
+
+	var requestBody struct {
+		ExploreCourseID uint `json:"explore_course_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] explore_course_id is required", 400)
+		return
+	}
+
+	if errorHandler := repositories.CreatePublicChapterFromChapter(uint(chapterID), requestBody.ExploreCourseID); errorHandler != nil {
+		utils.SendErrorResponse(c, "[CREATE PUBLIC CHAPTER] Error creating public chapter", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[CREATE PUBLIC CHAPTER] Public chapter created successfully", nil)
+}
+
+func UpdatePublicChapterFromChapter(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[UPDATE PUBLIC CHAPTER]")
+	if !ok {
+		return
+	}
+
+	chapterIDStr := c.Param("id")
+	chapterID, errorHandler := strconv.ParseUint(chapterIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] Invalid chapter ID", 400)
+		return
+	}
+
+	// Verify ownership through course
+	chapter, errorHandler := repositories.GetChapterByID(uint(chapterID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] Chapter not found", 404)
+		return
+	}
+
+	course, errorHandler := repositories.GetCourseByID(uint(chapter.CourseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] Course not found", 404)
+		return
+	}
+
+	if uint(course.UserID) != userID {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] Forbidden", 403)
+		return
+	}
+
+	var requestBody struct {
+		ExploreChapterID uint `json:"explore_chapter_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] explore_chapter_id is required", 400)
+		return
+	}
+
+	if errorHandler := repositories.UpdatePublicChapterFromChapter(uint(chapterID), requestBody.ExploreChapterID); errorHandler != nil {
+		utils.SendErrorResponse(c, "[UPDATE PUBLIC CHAPTER] Error updating public chapter", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[UPDATE PUBLIC CHAPTER] Public chapter updated successfully", nil)
+}
+
+func DeletePublicChapterFromChapter(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[DELETE PUBLIC CHAPTER]")
+	if !ok {
+		return
+	}
+
+	chapterIDStr := c.Param("id")
+	chapterID, errorHandler := strconv.ParseUint(chapterIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] Invalid chapter ID", 400)
+		return
+	}
+
+	// Verify ownership through course
+	chapter, errorHandler := repositories.GetChapterByID(uint(chapterID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] Chapter not found", 404)
+		return
+	}
+
+	course, errorHandler := repositories.GetCourseByID(uint(chapter.CourseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] Course not found", 404)
+		return
+	}
+
+	if uint(course.UserID) != userID {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] Forbidden", 403)
+		return
+	}
+
+	var requestBody struct {
+		ExploreChapterID uint `json:"explore_chapter_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] explore_chapter_id is required", 400)
+		return
+	}
+
+	if errorHandler := repositories.DeletePublicChapterFromChapter(requestBody.ExploreChapterID); errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC CHAPTER] Error deleting public chapter", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[DELETE PUBLIC CHAPTER] Public chapter deleted successfully", nil)
+}

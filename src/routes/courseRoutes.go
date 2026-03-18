@@ -15,8 +15,10 @@ func SetupCourseRoutes(router *gin.Engine, config *models.AppConfig) {
 		courseGroup.GET("/:id", middlewares.AuthMiddleware(), handlers.GetCourseByID)
 		courseGroup.POST("/create", middlewares.AuthMiddleware(), handlers.CreateCourse)
 		courseGroup.POST("/auto-create", middlewares.AuthMiddleware(), handlers.AutoCreateCourse)
-		courseGroup.PUT("/edit/:id", middlewares.AuthMiddleware(), handlers.UpdateCourse)
-		courseGroup.DELETE("/delete/:id", middlewares.AuthMiddleware(), handlers.DeleteCourse)
+		courseGroup.PUT("/:id/edit", middlewares.AuthMiddleware(), handlers.UpdateCourse)
+		courseGroup.DELETE("/:id/delete", middlewares.AuthMiddleware(), handlers.DeleteCourse)
+		courseGroup.POST("/:id/create-public", middlewares.AuthMiddleware(), handlers.CreatePublicCourseFromCourse)
+		courseGroup.PUT("/:id/update-public", middlewares.AuthMiddleware(), handlers.UpdatePublicCourseFromCourse)
 	}
 }
 
@@ -26,7 +28,10 @@ func SetupChapterRoutes(router *gin.Engine, config *models.AppConfig) {
 		chapterGroup.GET("/", middlewares.AuthMiddleware(), handlers.GetAllChaptersByCourseID)
 		chapterGroup.GET("/:id", middlewares.AuthMiddleware(), handlers.GetOneChapterByID)
 		chapterGroup.POST("/create", middlewares.AuthMiddleware(), handlers.CreateChapter)
-		chapterGroup.PUT("/edit/:id", middlewares.AuthMiddleware(), handlers.UpdateChapter)
-		chapterGroup.DELETE("/delete/:id", middlewares.AuthMiddleware(), handlers.DeleteChapter)
+		chapterGroup.PUT("/:id/edit", middlewares.AuthMiddleware(), handlers.UpdateChapter)
+		chapterGroup.DELETE("/:id/delete", middlewares.AuthMiddleware(), handlers.DeleteChapter)
+		chapterGroup.POST("/:id/create-public", middlewares.AuthMiddleware(), handlers.CreatePublicChapterFromChapter)
+		chapterGroup.PUT("/:id/update-public", middlewares.AuthMiddleware(), handlers.UpdatePublicChapterFromChapter)
+		chapterGroup.DELETE("/:id/delete-public", middlewares.AuthMiddleware(), handlers.DeletePublicChapterFromChapter)
 	}
 }
