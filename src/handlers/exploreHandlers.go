@@ -2,36 +2,48 @@ package handlers
 
 import (
 	"segmenta/src/controllers"
-	
+
 	"github.com/gin-gonic/gin"
 )
 
 // Explore Course Handlers
 
-func GetAllCoursesForExplore(c *gin.Context) {
-	controllers.GetAllCoursesForExplore(c)
+func GetAllExploreCourses(c *gin.Context) {
+	controllers.GetAllExploreCourses(c)
 }
 
-func GetExploredCourseByID(c *gin.Context) {
-	controllers.GetExploredCourseByID(c)
+func GetExploreCourseByID(c *gin.Context) {
+	controllers.GetExploreCourseByID(c)
 }
 
 func SearchCourses(c *gin.Context) {
 	controllers.SearchCourses(c)
 }
 
+func GetAllCoursesByCategoryForExplore(c *gin.Context) {
+	controllers.GetAllCoursesByCategoryForExplore(c)
+}
+
 func EnrollInCourse(c *gin.Context) {
 	controllers.EnrollInCourse(c)
 }
 
-// Explore Course Chapter Handlers
-
-func GetAllExploreChapterByCourseID(c *gin.Context) {
-	controllers.GetAllExploreChapterByCourseID(c)
+func EditPublicCourse(c *gin.Context) {
+	controllers.EditPublicCourse(c)
 }
 
-func GetOneExploreChapterByID(c *gin.Context) {
-	controllers.GetOneExploreChapterByID(c)
+func DeletePublicCourse(c *gin.Context) {
+	controllers.DeletePublicCourse(c)
+}
+
+// Explore Course Chapter Handlers
+
+func GetAllExploreChapterByExploreCourseID(c *gin.Context) {
+	controllers.GetAllExploreChapterByExploreCourseID(c)
+}
+
+func GetOneExploreChapterByCourseID(c *gin.Context) {
+	controllers.GetOneExploreChapterByCourseID(c)
 }
 
 func CreateExploreChapter(c *gin.Context) {

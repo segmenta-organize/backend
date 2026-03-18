@@ -31,6 +31,46 @@ func DeleteCourseByID(id uint) error {
 	return configs.Database.Where("course_id = ?", id).Delete(&models.Course{}).Error
 }
 
+func CreatePublicCourseFromCourse(courseID uint, userID uint) error {
+	version := 1
+	var course models.Course
+	if err := configs.Database.First(&course, "course_id = ?", courseID).Error; err != nil {
+		return err
+	}
+
+	exploreCourse := models.ExploreCourse{
+		CreatorID:         int(userID),
+		Title:             course.Title,
+		Description:       course.Description,
+		Channel:           course.Channel,
+		ChannelLink:       course.ChannelLink,
+		VideoLink:         course.VideoLink,
+		ThumbnailImageURL: course.ThumbnailImageURL,
+		Version:           &version,
+	}
+
+	return configs.Database.Create(&exploreCourse).Error
+}
+
+func UpdatePublicCourseFromCourse(courseID uint, exploreCourseID uint) error {
+	var course models.Course
+	if err := configs.Database.First(&course, "course_id = ?", courseID).Error; err != nil {
+		return err
+	}
+
+	return configs.Database.Model(&models.ExploreCourse{}).
+		Where("explore_course_id = ?", exploreCourseID).
+		Updates(map[string]interface{}{
+			"title":               course.Title,
+			"description":         course.Description,
+			"channel":             course.Channel,
+			"channel_link":        course.ChannelLink,
+			"video_link":          course.VideoLink,
+			"thumbnail_image_url": course.ThumbnailImageURL,
+			"version":             configs.Database.Raw("version + 1"),
+		}).Error
+}
+
 func CheckCourseLinkExists(userID uint, link string) (bool, error) {
 	var count int64
 	result := configs.Database.Model(&models.Course{}).Where("user_id = ? AND video_link = ?", userID, link).Count(&count)
@@ -61,4 +101,46 @@ func UpdateChapterByID(id uint, chapter *models.Chapter) error {
 
 func DeleteChapterByID(id uint) error {
 	return configs.Database.Where("chapter_id = ?", id).Delete(&models.Chapter{}).Error
+}
+
+func DeleteChaptersByCourseID(courseID uint) error {
+	return configs.Database.Where("course_id = ?", courseID).Delete(&models.Chapter{}).Error
+}
+
+// Chapter → ExploreChapter public functions
+
+func CreatePublicChapterFromChapter(chapterID uint, exploreCourseID uint) error {
+	var chapter models.Chapter
+	if err := configs.Database.First(&chapter, "chapter_id = ?", chapterID).Error; err != nil {
+		return err
+	}
+
+	// Count existing explore chapters to determine order
+	var count int64
+	configs.Database.Model(&models.ExploreChapter{}).Where("explore_course_id = ?", exploreCourseID).Count(&count)
+
+	exploreChapter := models.ExploreChapter{
+		ExploreCourseID: exploreCourseID,
+		Title:           chapter.Title,
+		Order:           int(count) + 1,
+	}
+
+	return configs.Database.Create(&exploreChapter).Error
+}
+
+func UpdatePublicChapterFromChapter(chapterID uint, exploreChapterID uint) error {
+	var chapter models.Chapter
+	if err := configs.Database.First(&chapter, "chapter_id = ?", chapterID).Error; err != nil {
+		return err
+	}
+
+	return configs.Database.Model(&models.ExploreChapter{}).
+		Where("explore_chapter_id = ?", exploreChapterID).
+		Updates(map[string]interface{}{
+			"title": chapter.Title,
+		}).Error
+}
+
+func DeletePublicChapterFromChapter(exploreChapterID uint) error {
+	return configs.Database.Where("explore_chapter_id = ?", exploreChapterID).Delete(&models.ExploreChapter{}).Error
 }

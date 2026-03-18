@@ -12,13 +12,9 @@ import (
 
 // Explore Course Controllers
 
-func GetAllCoursesForExplore(c *gin.Context) {
-	userID, ok := utils.GetUserID(c, "[GET ALL COURSES FOR EXPLORE]")
-	if !ok {
-		return
-	}
+func GetAllExploreCourses(c *gin.Context) {
+	availableCourses, errorHandler := repositories.GetAllExploreCourses()
 
-	availableCourses, errorHandler := repositories.GetAllAvailableCourses(userID)
 	if errorHandler != nil {
 		utils.SendErrorResponse(c, "[GET ALL COURSES FOR EXPLORE] Error fetching courses", 500)
 		return
@@ -27,47 +23,54 @@ func GetAllCoursesForExplore(c *gin.Context) {
 	utils.SendSuccessResponse(c, "[GET ALL COURSES FOR EXPLORE] Courses fetched successfully", gin.H{"courses": availableCourses})
 }
 
-func GetExploredCourseByID(c *gin.Context) {
-	_, ok := utils.GetUserID(c, "[GET EXPLORED COURSE BY ID]")
-	if !ok {
-		return
-	}
+func GetExploreCourseByID(c *gin.Context) {
+	exploreCourseIDStr := c.Param("id")
 
-	exploredCourseIDStr := c.Param("id")
-	exploredCourseID, errorHandler := strconv.ParseUint(exploredCourseIDStr, 10, 64)
+	exploreCourseID, errorHandler := strconv.ParseUint(exploreCourseIDStr, 10, 64)
 	if errorHandler != nil {
-		utils.SendErrorResponse(c, "[GET EXPLORED COURSE BY ID] Invalid course ID", 400)
+		utils.SendErrorResponse(c, "[GET EXPLORE COURSE BY ID] Invalid course ID", 400)
 		return
 	}
 
-	exploredCourse, errorHandler := repositories.GetExploredCourseByID(uint(exploredCourseID))
+	exploreCourseData, errorHandler := repositories.GetExploreCourseByID(uint(exploreCourseID))
 	if errorHandler != nil {
-		utils.SendErrorResponse(c, "[GET EXPLORED COURSE BY ID] Error fetching course", 500)
+		utils.SendErrorResponse(c, "[GET EXPLORE COURSE BY ID] Error fetching course", 500)
 		return
 	}
 
-	utils.SendSuccessResponse(c, "[GET EXPLORED COURSE BY ID] Course fetched successfully", gin.H{"course": exploredCourse})
+	utils.SendSuccessResponse(c, "[GET EXPLORE COURSE BY ID] Course fetched successfully", gin.H{"course": exploreCourseData})
 }
 
 func SearchCourses(c *gin.Context) {
-	_, ok := utils.GetUserID(c, "[SEARCH COURSES]")
-	if !ok {
-		return
-	}
-
 	query := c.Query("q")
 	if query == "" {
 		utils.SendErrorResponse(c, "[SEARCH COURSES] Query parameter 'q' is required", 400)
 		return
 	}
 
-	searchResults, errorHandler := repositories.SearchCourses(query)
+	searchResults, errorHandler := repositories.SearchExploreCourses(query)
 	if errorHandler != nil {
 		utils.SendErrorResponse(c, "[SEARCH COURSES] Error searching courses", 500)
 		return
 	}
 
 	utils.SendSuccessResponse(c, "[SEARCH COURSES] Courses fetched successfully", gin.H{"courses": searchResults})
+}
+
+func GetAllCoursesByCategoryForExplore(c *gin.Context) {
+	category := c.Param("category")
+	if category == "" {
+		utils.SendErrorResponse(c, "[GET COURSES BY CATEGORY FOR EXPLORE] Category parameter is required", 400)
+		return
+	}
+
+	courses, errorHandler := repositories.GetAllCoursesByCategoryForExplore(category)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[GET COURSES BY CATEGORY FOR EXPLORE] Error fetching courses by category", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[GET COURSES BY CATEGORY FOR EXPLORE] Courses fetched successfully", gin.H{"courses": courses})
 }
 
 func EnrollInCourse(c *gin.Context) {
@@ -92,14 +95,84 @@ func EnrollInCourse(c *gin.Context) {
 	utils.SendSuccessResponse(c, "[ENROLL IN COURSE] Enrolled in course successfully", nil)
 }
 
-// Explore Course Chapter Controllers
-
-func GetAllExploreChapterByCourseID(c *gin.Context) {
-	_, ok := utils.GetUserID(c, "[GET ALL EXPLORE CHAPTERS BY COURSE ID]")
+func EditPublicCourse(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[EDIT PUBLIC COURSE]")
 	if !ok {
 		return
 	}
 
+	courseIDStr := c.Param("id")
+	courseID, errorHandler := strconv.ParseUint(courseIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[EDIT PUBLIC COURSE] Invalid course ID", 400)
+		return
+	}
+
+	// Verify ownership: only the creator can edit
+	exploreCourse, errorHandler := repositories.GetExploreCourseByID(uint(courseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[EDIT PUBLIC COURSE] Explore course not found", 404)
+		return
+	}
+
+	if uint(exploreCourse.CreatorID) != userID {
+		utils.SendErrorResponse(c, "[EDIT PUBLIC COURSE] Forbidden", 403)
+		return
+	}
+
+	var updatedCourse models.ExploreCourse
+	if errorHandler := c.ShouldBindJSON(&updatedCourse); errorHandler != nil {
+		utils.SendErrorResponse(c, "[EDIT PUBLIC COURSE] Invalid request data", 400)
+		return
+	}
+
+	errorHandler = repositories.EditPublicCourse(uint(courseID), &updatedCourse)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[EDIT PUBLIC COURSE] Error updating public course", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[EDIT PUBLIC COURSE] Public course updated successfully", nil)
+}
+
+func DeletePublicCourse(c *gin.Context) {
+	userID, ok := utils.GetUserID(c, "[DELETE PUBLIC COURSE]")
+	if !ok {
+		return
+	}
+
+	courseIDStr := c.Param("id")
+	courseID, errorHandler := strconv.ParseUint(courseIDStr, 10, 64)
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC COURSE] Invalid course ID", 400)
+		return
+	}
+
+	// Verify ownership: only the creator can delete
+	exploreCourse, errorHandler := repositories.GetExploreCourseByID(uint(courseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC COURSE] Explore course not found", 404)
+		return
+	}
+
+	if uint(exploreCourse.CreatorID) != userID {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC COURSE] Forbidden", 403)
+		return
+	}
+
+	// DeletePublicCourse in repo now handles cascade delete of chapters
+	errorHandler = repositories.DeletePublicCourse(uint(courseID))
+	if errorHandler != nil {
+		utils.SendErrorResponse(c, "[DELETE PUBLIC COURSE] Error deleting public course", 500)
+		return
+	}
+
+	utils.SendSuccessResponse(c, "[DELETE PUBLIC COURSE] Public course deleted successfully", nil)
+}
+
+// Explore Course Chapter Controllers
+
+func GetAllExploreChapterByExploreCourseID(c *gin.Context) {
 	exploreCourseIDStr := c.Param("course_id")
 	exploreCourseID, errorHandler := strconv.ParseUint(exploreCourseIDStr, 10, 64)
 	if errorHandler != nil {
@@ -116,12 +189,7 @@ func GetAllExploreChapterByCourseID(c *gin.Context) {
 	utils.SendSuccessResponse(c, "[GET ALL EXPLORE CHAPTERS BY COURSE ID] Chapters fetched successfully", gin.H{"chapters": chapters})
 }
 
-func GetOneExploreChapterByID(c *gin.Context) {
-	_, ok := utils.GetUserID(c, "[GET ONE EXPLORE CHAPTER BY ID]")
-	if !ok {
-		return
-	}
-
+func GetOneExploreChapterByCourseID(c *gin.Context) {
 	exploreChapterIDStr := c.Param("id")
 	exploreChapterID, errorHandler := strconv.ParseUint(exploreChapterIDStr, 10, 64)
 	if errorHandler != nil {
@@ -152,7 +220,7 @@ func CreateExploreChapter(c *gin.Context) {
 	}
 
 	// Verify the course exists
-	_, errorHandler = repositories.GetExploredCourseByID(uint(exploreCourseID))
+	_, errorHandler = repositories.GetExploreCourseByID(uint(exploreCourseID))
 	if errorHandler != nil {
 		utils.SendErrorResponse(c, "[CREATE EXPLORE CHAPTER] Explore course not found", 404)
 		return

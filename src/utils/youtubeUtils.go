@@ -88,7 +88,7 @@ func ChapterMakerFromDescription(description string, courseID int) []models.Chap
 		}
 
 		match := timestampPattern.FindStringSubmatch(line)
-		if match == nil || len(match) < 3 {
+		if len(match) < 3 {
 			continue
 		}
 

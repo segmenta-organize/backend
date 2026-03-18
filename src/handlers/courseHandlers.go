@@ -32,6 +32,14 @@ func DeleteCourse(c *gin.Context) {
 	controllers.DeleteCourse(c)
 }
 
+func CreatePublicCourseFromCourse(c *gin.Context) {
+	controllers.CreatePublicCourseFromCourse(c)
+}
+
+func UpdatePublicCourseFromCourse(c *gin.Context) {
+	controllers.UpdatePublicCourseFromCourse(c)
+}
+
 // Chapter Handlers
 
 func GetAllChaptersByCourseID(c *gin.Context) {
@@ -52,4 +60,18 @@ func UpdateChapter(c *gin.Context) {
 
 func DeleteChapter(c *gin.Context) {
 	controllers.DeleteChapter(c)
+}
+
+// Chapter → Explore Chapter public handlers
+
+func CreatePublicChapterFromChapter(c *gin.Context) {
+	controllers.CreatePublicChapterFromChapter(c)
+}
+
+func UpdatePublicChapterFromChapter(c *gin.Context) {
+	controllers.UpdatePublicChapterFromChapter(c)
+}
+
+func DeletePublicChapterFromChapter(c *gin.Context) {
+	controllers.DeletePublicChapterFromChapter(c)
 }
