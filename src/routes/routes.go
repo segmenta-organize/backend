@@ -14,6 +14,6 @@ func SetupAllRoutes(router *gin.Engine, config *models.AppConfig) {
 		SetupChapterRoutes(api, config)
 		SetupExploreRoutes(api, config)
 		SetupExploreChapterRoutes(api, config)
-		SetupUserRoutes(api, config) // jangan lupa ini kalau ada
+		SetupUserRoutes(api, config)
 	}
 }
